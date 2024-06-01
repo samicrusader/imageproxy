@@ -4,6 +4,7 @@
 package imageproxy
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -283,6 +284,9 @@ func ParseOptions(str string) Options {
 			if size, err := strconv.ParseFloat(opt, 64); err == nil {
 				options.Width = size
 				options.Height = size
+			} else {
+				// gonna force this to be a sig, might break
+				options.Signature = opt
 			}
 		}
 	}
@@ -363,6 +367,14 @@ var reCleanedURL = regexp.MustCompile(`^(https?):/+([^/])`)
 // parseURL parses s as a URL, handling URLs that have been munged by
 // path.Clean or a webserver that collapses multiple slashes.
 func parseURL(s string) (*url.URL, error) {
+	// hexdecode url from hexdigest
+        sd, err := hex.DecodeString(s)
+        if err != nil {
+		//return nil, err
+		// return orig value, go will kill us later
+	} else {
+		s = string(sd)
+	}
 	s = reCleanedURL.ReplaceAllString(s, "$1://$2")
 	return url.Parse(s)
 }

@@ -9,8 +9,10 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/hmac"
+	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -393,18 +395,32 @@ func validSignature(key []byte, r *Request) bool {
 		sig += strings.Repeat("=", 4-m)
 	}
 
-	got, err := base64.URLEncoding.DecodeString(sig)
-	if err != nil {
-		log.Printf("error base64 decoding signature %q", r.Options.Signature)
-		return false
-	}
 
+	//got, err := base64.URLEncoding.DecodeString(sig)
+	// sig is now hexdigest
+	got, err := hex.DecodeString(sig)
+	isCamoReq := true
+	if err != nil {
+		log.Printf("error hex.DecodeString(%q) trying as b64", r.Options.Signature)
+		got, err = base64.URLEncoding.DecodeString(sig)
+		if err != nil {
+			log.Printf("error base64decode as well")
+			return false
+		} else {
+			isCamoReq = false
+		}
+	}
 	// check signature with URL only
-	mac := hmac.New(sha256.New, key)
+	mac := hmac.New(sha1.New, key)
+	if !isCamoReq {
+		mac = hmac.New(sha256.New, key)
+	}
 	_, _ = mac.Write([]byte(r.URL.String()))
 	want := mac.Sum(nil)
 	if hmac.Equal(got, want) {
 		return true
+	} else {
+		log.Printf("first compare failed, trying with opts...")
 	}
 
 	// check signature with URL and options
